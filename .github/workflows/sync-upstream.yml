@@ -1,0 +1,39 @@
+name: Sync upstream
+
+on:
+  schedule:
+    # Daily at 09:23 Asia/Shanghai (01:23 UTC).
+    - cron: '23 1 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: github.event.repository.fork == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Sync master from upstream
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api --method POST "repos/${GH_REPO}/merge-upstream" \
+            -f branch=master > sync-result.json
+          jq -r '.message' sync-result.json
+          {
+            echo '### Upstream sync'
+            echo
+            jq -r '.message' sync-result.json
+            echo
+            echo 'Source: wp-statistics/GeoLite2-City (master)'
+            echo 'Target: master'
+          } >> "$GITHUB_STEP_SUMMARY"
